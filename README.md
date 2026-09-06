@@ -81,6 +81,39 @@ dangling DNS, SPF/SubdoMailing, email-auth, CT history, reputation), mapped to
 MITRE ATT&CK and OWASP. Great as a portfolio project — see SECURITY.md's
 framing section.
 
+## 🛡️ Security scanner (Attack Surface Management)
+
+Expired and *dangling* domains are a documented attack class — attackers
+re-register abandoned assets to inherit trust
+([MITRE ATT&CK T1583.001](https://attack.mitre.org/techniques/T1583/001/)).
+`security_scan.sh` profiles any domain for that exposure using only free, public
+data (RDAP, DNS, Certificate Transparency, DNSBLs) — no API keys:
+
+| Check | Detects | Reference |
+|-------|---------|-----------|
+| Subdomain takeover | CNAME to a deprovisioned service, **HTTP-fingerprint confirmed** | [can-i-take-over-xyz](https://github.com/EdOverflow/can-i-take-over-xyz) |
+| SubdoMailing / SPF | Expired/unregistered `include:` domains an attacker can hijack to send SPF-passing spoofed mail | [Guardio Labs](https://labs.guard.io/subdomailing-thousands-of-hijacked-major-brand-subdomains-found-bombarding-users-with-millions-a5e5fb892935) |
+| Dangling DNS | Live A/NS/MX records whose target no longer resolves | [OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Subdomain_Takeover_Prevention_Cheat_Sheet.html) |
+| CT history | Historical subdomains + a live-takeover alarm (new cert on a dangling host) | [crt.sh](https://crt.sh) |
+| Email-auth posture | Missing/weak DMARC & SPF | — |
+| Reputation | Spamhaus DBL listing (abuse history) | [Spamhaus](https://www.spamhaus.org/blocklists/domain-blocklist/) |
+
+Illustrative — what a *positive* finding looks like (most domains come back clean):
+
+```console
+=== 3. SUBDOMAIN-TAKEOVER / DANGLING-CNAME SCAN ===
+  shop.acme.com -> myshop.myshopify.com
+      [⚠⚠ LIKELY TAKEOVER — live page shows an unclaimed-service fingerprint]
+=== 4. EMAIL-TRUST RESIDUE ===
+  SPF include/redirect targets (SubdoMailing exposure check):
+    ⚠⚠ oldvendor.com — apex UNREGISTERED = SPF-spoofing takeover risk!
+```
+
+Works as **red-team recon** (map a target's dangling assets) or **blue-team ASM**
+(find your own forgotten assets before attackers do). Full interpretation and
+portfolio framing in **[SECURITY.md](SECURITY.md)**. Authorized/defensive use
+only — it flags takeover *candidates* from public data, never exploits them.
+
 ## The scripts (usable standalone)
 
 ```bash
