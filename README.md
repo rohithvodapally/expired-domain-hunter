@@ -1,89 +1,112 @@
-# 🕵️ Expired Domain Hunter — a Claude Code skill
+# 🕵️ Expired Domain Hunter — Dropped-Domain Finder, Backlink Vetter & Domain Security Scanner
 
-Find **expired and dropped domains with real backlinks** for any keyword —
-without paying $37/month for SpamZilla or clicking through auction sites for
-hours. This skill turns Claude Code into a domain research analyst that sweeps
-marketplaces, digs through the Wayback Machine for dead businesses, verifies
-availability at the registry level, and hands you a ranked buy report.
+> A free **Claude Code skill** that finds expired & dropped domains with real
+> backlinks for any keyword, verifies availability + drop-dates via registry
+> RDAP, digs their history out of the Wayback Machine, flags spam/penalty
+> signals — and doubles as a **domain security scanner** (subdomain-takeover,
+> dangling-DNS, SPF/SubdoMailing, Certificate Transparency & reputation).
 
-## Why this exists
+Find **expired and dropped domains with real backlinks** for any keyword — *and*
+analyze any domain for **expired-asset security risks**. One skill, two jobs:
+SEO domain prospecting and domain **Attack Surface Management (ASM)**.
 
-The best expired domains never reach the auction platforms you're watching.
-When a small business shuts down, its domain — with years of history and
-organically earned backlinks — often just **drops** and becomes hand-registerable
-for ~$10. The tools that find these are subscription-gated. The data they use
-is not:
+Runs on free, public data only — registry **RDAP**, the **Wayback Machine**,
+**Certificate Transparency** (crt.sh), and **DNS/DNSBLs**. No SpamZilla
+subscription, no API keys required.
 
-- **Registry RDAP** (free) tells you the exact registration status of any domain
-- **Wayback Machine CDX** (free) tells you what lived on it and for how long
-- **Web search** (free) finds the marketplaces' indexed listings and the ghosts
-  of dead businesses
+---
 
-This skill orchestrates all three.
+## Why it's different
+
+Most expired-domain tools compete on one thing: scraping auction lists and
+showing you DA/TF metrics. This one adds two angles they don't have:
+
+**1. It hunts dead businesses, not just auctions.** The best domains never reach
+the marketplaces you're watching — when a small business folds, its domain (with
+years of organically-earned local backlinks) just *drops*. This skill digs them
+out of the Wayback Machine, extracts the old business's name/location/services
+to prove the history is real, and confirms the domain is hand-registerable for
+~$10.
+
+**2. It has a cybersecurity mode.** Expired and *dangling* domains are a
+documented attack class (MITRE ATT&CK **T1583.001**). The bundled
+`security_scan.sh` profiles any domain for **subdomain takeover**, **dangling
+DNS**, **SubdoMailing/SPF-include hijacking**, **Certificate Transparency**
+exposure, and **reputation** — usable as red-team recon *or* blue-team ASM.
+See **[SECURITY.md](SECURITY.md)**. No other expired-domain skill does this.
+
+Plus the discipline reviewers notice: **every domain in a report carries an
+evidence URL** (no hallucinated names), and reports end with a **redevelop-and-
+rank playbook** that keeps you inside Google's expired-domain-abuse policy.
 
 ## Real result from the first run
 
-Searching keyword `pestcontrol`, the skill found — among ~50 candidates —
-**`rightwaypestcontrol.com`**: a genuine St. Louis pest-control company's domain
-with 11 years of Wayback history, previously listed by a domain flipper at
-**$395**, sitting **unregistered** — hand-registerable for the price of a pizza.
-Plus 20 more available domains with history, 3 buy-now listings with verified
-Moz metrics, and a backorder watchlist topped by a domain with 7,573 archive
-captures since 2002.
+Keyword `pestcontrol` → among ~50 candidates, the skill found
+**`rightwaypestcontrol.com`**: a real St. Louis pest-control company's domain,
+11 years of Wayback history, once listed by a flipper at **$395**, sitting
+**unregistered** — hand-registerable for the price of a coffee. See
+[examples/pestcontrol-report.txt](examples/pestcontrol-report.txt).
 
 ## Install
 
 ```bash
-# personal (all projects)
 git clone https://github.com/rohithvodapally/expired-domain-hunter.git \
-  ~/.claude/skills/expired-domain-hunter
-
-# or per-project
-git clone https://github.com/rohithvodapally/expired-domain-hunter.git \
-  .claude/skills/expired-domain-hunter
+  ~/.claude/skills/expired-domain-hunter        # personal (all projects)
+# or: .claude/skills/expired-domain-hunter      # per-project
 ```
 
-Requires Claude Code with web search enabled. The verifier script needs only
-`bash`, `curl`, and `python3`.
+Requires Claude Code with web search. Scripts need `bash`, `curl`, `python3`
+(and `dig` for the security scan).
 
 ## Use
 
 ```
 /expired-domain-hunter pestcontrol
 ```
+or ask naturally:
+> find me expired domains containing "plumbing" with good backlinks
+>
+> run a security scan on example.com for dangling subdomains
 
-or just ask naturally:
+## What you get
 
-> find me expired domains containing "plumbing" that have good backlinks
+**SEO mode** — parallel discovery (auctions + Wayback defunct-business hunt +
+curated shops + link reclamation) → RDAP verification with **drop-date
+prediction** → history/authority/spam enrichment → a ranked report: top 5 picks,
+available-to-register list (~$10), marketplace listings with red-flag warnings,
+a backorder watchlist, and the rebuild playbook.
 
-Claude will sweep the sources in parallel, verify every candidate, inspect the
-Wayback history of the finalists, and produce a report with:
+**Security mode** — a six-check domain threat profile (subdomain takeover,
+dangling DNS, SPF/SubdoMailing, email-auth, CT history, reputation), mapped to
+MITRE ATT&CK and OWASP. Great as a portfolio project — see SECURITY.md's
+framing section.
 
-1. **Top 5 picks** with reasoning
-2. **Available-to-register list** (~$10 each) with site histories
-3. **Marketplace listings** with metrics — spam-profile red flags called out
-4. **Backorder watchlist** of registered-but-dead domains
-5. **Redevelop & rank playbook** (same-niche rebuild, restoring old URLs so
-   legacy backlinks resolve, staying inside Google's expired-domain policies)
-
-## The standalone verifier
-
-The bundled script works on its own too:
+## The scripts (usable standalone)
 
 ```bash
-./scripts/check_domains.sh candidate1.com candidate2.net
-# candidate1.com | AVAILABLE (unregistered)          | archive: 2013-2025 (11 yrs w/ snapshots)
-# candidate2.net | TAKEN (expires 2027-05-12)        | archive: none
+# availability + drop-date + wayback history (CSV=1 for a sortable table)
+bash scripts/check_domains.sh candidate1.com candidate2.net
+CSV=1 bash scripts/check_domains.sh candidate1.com > results.csv
+
+# full cybersecurity profile of a domain
+bash scripts/security_scan.sh example.com
+
+# link reclamation: dropped domains linked from a resource page
+bash scripts/link_reclaim.sh https://example.com/useful-links
 ```
 
 ## Honest limitations
 
-- Backlink **quality** still needs a look in Ahrefs/Majestic/Moz free checkers
-  before you spend real money — this skill verifies history and availability,
-  not anchor-text cleanliness.
+- Backlink **quality** still needs an eyeball in Ahrefs/Majestic/Moz free
+  checkers before you spend real money — the skill verifies history, availability,
+  and (optionally) an OpenPageRank score, not anchor-text cleanliness.
 - Availability is a snapshot; drop-catchers move daily.
+- RDAP 404 is trustworthy only for `.com`/`.net` (Verisign); other TLDs get
+  flagged for manual check rather than falsely called available.
 - Subscription marketplaces (ODYS, SpamZilla, DomCop) stay closed — the skill
   reports what's walled rather than pretending.
+- Security mode is for **authorized/defensive** use: it flags takeover
+  *candidates* from public data, never attempts exploitation.
 
 ## License
 

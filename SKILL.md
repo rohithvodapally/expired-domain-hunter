@@ -1,101 +1,69 @@
 ---
 name: expired-domain-hunter
-description: Find and vet expired/dropped domains containing a keyword — sweeps auction marketplaces, hunts defunct businesses via the Wayback Machine, verifies availability via registry RDAP, and produces a ranked buy report with backlink-quality guidance. Use when the user wants expired domains, aged domains, dropped domains, or domains with existing backlinks for SEO/redevelopment.
+description: Find and vet expired/dropped domains for SEO or security research. Sweeps auction marketplaces, hunts defunct businesses via the Wayback Machine, verifies availability + drop-dates via registry RDAP, enriches with authority/spam signals, and produces a ranked buy report — plus a cybersecurity mode (subdomain-takeover, dangling-DNS, SubdoMailing/SPF, CT history, reputation) framed as Attack Surface Management. Use for expired domains, aged domains, dropped domains, domains with backlinks, link reclamation, or domain threat-intel / ASM.
 ---
 
 # Expired Domain Hunter
 
-Find expired and dropped domains containing the user's keyword that have real
-history and backlinks, verify what can actually be bought (and how), and
-deliver a ranked report. The biggest wins are domains that dropped completely —
-hand-registerable for ~$10 despite years of history.
+Two jobs from one keyword or domain:
+1. **SEO mode** (default) — find dropped/expired domains with real history + backlinks worth rebuilding on.
+2. **Security mode** — profile a domain (or an org's footprint) for expired-asset attack surface: subdomain takeover, dangling DNS, SubdoMailing/SPF abuse, reputation. See `SECURITY.md`.
 
-## Inputs
+Bundled scripts (bash + curl + python3, no API keys required):
+- `scripts/check_domains.sh` — RDAP availability + drop-date prediction + Wayback history (`CSV=1` for machine output)
+- `scripts/security_scan.sh` — full cybersecurity profile of one domain
+- `scripts/link_reclaim.sh` — find registerable domains linked from any resource page
 
-Ask for (or infer from the request):
-- **keyword** (required) — must appear in the domain name, e.g. "pestcontrol"
-- niche/intent (local business, ecommerce, content site) — shapes ranking
-- TLD preferences (default: .com first, then .net/.org)
+---
 
-## Workflow
+## SEO MODE
 
-### Phase 1 — Discovery (run these three angles in parallel subagents)
+### Inputs
+- **keyword** (required) — must appear in the domain, e.g. "pestcontrol"
+- niche/intent (local business / ecommerce / content) — shapes ranking
+- TLD preference (default .com, then .net/.org)
 
-**Angle A: Auction/marketplace sweep** (WebSearch + WebFetch):
-- Fetchable without login: `expireddomains.com` (note: the .COM site — the
-  better-known expireddomains.NET is login-walled), `dynadot.com/market/auction`,
-  Atom.com listing pages, Flippa search.
-- Usually walled (403/JS-shell — try once, then move on): expireddomains.net,
-  GoDaddy Auctions, Sedo, Namecheap Market, DropCatch, Sav, park.io.
-  Dan.com is discontinued (301s to Afternic).
-- Also WebSearch: `site:expireddomains.com <keyword>`, `"<keyword>" domain auction`,
-  `site:afternic.com <keyword>`, etc.
-- Capture: domain, price, any published metrics (DA/PA/TF/CF/referring domains,
-  age, spam score), listing URL.
+### Phase 1 — Discovery (run these angles in PARALLEL subagents)
 
-**Angle B: Defunct-business hunt** (the highest-yield angle):
-- WebSearch for old citations of `<keyword>` company websites: directory pages
-  (Yelp/BBB/YellowPages), old blog/forum mentions, `site:web.archive.org <keyword>`.
-- The Wayback Machine's search index surfaces historical domains; per-domain CDX
-  lookups then confirm capture history.
-- A dead site + multi-year archive history = prime candidate.
+**A. Auction/marketplace sweep** (WebSearch + WebFetch): fetchable = expireddomains.**com**, dynadot.com/market/auction, Atom.com, Flippa. Usually walled (try once, move on) = expireddomains.**net**, GoDaddy Auctions, Sedo, Namecheap, DropCatch, Sav. Dan.com is dead (→Afternic). Capture domain, price, any metrics, listing URL.
 
-**Angle C: Curated aged-domain shops**:
-- ODYS, SpamZilla, DomCop, SerpNames are subscription/login-gated — check for
-  indexed inventory pages via WebSearch but expect little; report walls honestly.
+**B. Defunct-business hunt** (highest yield): WebSearch old citations of `<keyword>` companies (Yelp/BBB/YellowPages, old blogs/forums), `site:web.archive.org <keyword>`. Dead site + multi-year archive = prime candidate. This is our signature angle — most tools don't do it.
 
-**Anti-hallucination rule (critical):** only report domains actually seen in a
-fetched page or search result, each with an evidence URL. NEVER invent or
-"generate plausible" domain names for the report.
+**C. Curated aged shops**: ODYS, SpamZilla, DomCop, SerpNames are login/subscription-gated — check for indexed pages but report walls honestly.
 
-### Phase 2 — Verification (scripts/check_domains.sh)
+**D. Link reclamation** (unique angle): if the user has a niche resource page / competitor links page / old article, run `link_reclaim.sh <url>` to find dropped domains already linked from it.
 
-Run the bundled verifier on every candidate:
+**Anti-hallucination rule (critical):** only report domains actually seen in a fetched page or search result, each with an evidence URL. NEVER invent domain names.
 
-```bash
-scripts/check_domains.sh domain1.com domain2.net ...
-```
+### Phase 2 — Verify (scripts/check_domains.sh)
+Run on every candidate. Reports availability (RDAP 404 = hand-registerable ~$10), **drop-date prediction** from EPP status (pendingDelete ≈ 5 days, redemption ≈ 30 days, or estimate from expiry), and Wayback depth. Use `CSV=1` to produce a sortable table.
 
-Per domain it reports:
-- **Registration status** via registry RDAP (Verisign for .com/.net — HTTP 404
-  means UNREGISTERED = hand-registerable now; rdap.org for other TLDs, where a
-  timeout on unregistered names is common — treat timeouts as "unknown, check
-  at a registrar").
-- **Wayback history**: first/last snapshot year and number of years with captures.
-
-### Phase 3 — History quality check (top candidates only)
-
-For the best 3-5 candidates, inspect what the site actually was:
-- Year-by-year snapshots: `curl "https://web.archive.org/cdx/search/cdx?url=<domain>&fl=timestamp,statuscode&collapse=timestamp:4"`
-- Page inventory: `...cdx?url=<domain>/*&fl=original&collapse=urlkey&filter=statuscode:200&limit=25`
-- Fetch one mid-history snapshot with curl (WebFetch is often blocked for
-  web.archive.org; the replay endpoint can be slow — use generous timeouts and
-  retries) and extract: business name, location, services, phone. A real local
-  business or genuine content site = good; thin/spun/foreign-spam content = skip.
+### Phase 3 — Enrich the finalists (top 3-8)
+- **History quality**: year-by-year snapshots (`curl "https://web.archive.org/cdx/search/cdx?url=<d>&fl=timestamp,statuscode&collapse=timestamp:4"`), page inventory, and fetch one mid-history snapshot with curl (WebFetch is often blocked for web.archive.org; use long timeouts) to extract business name/location/services. Real business = good; spun/parked/foreign-spam = skip.
+- **Authority signal** (optional): if the user has an OpenPageRank free API key (domcop.com/openpagerank), fetch a DA-like 0-10 score. Otherwise instruct them to spot-check in Ahrefs/Majestic/Moz free checkers.
+- **Google index/penalty check**: WebSearch `site:<domain>` — zero results ≈ de-indexed/penalized (red flag). Cross-check for a Wayback traffic/coverage cliff.
+- **Automated spam scan**: from the CDX status history + a fetched snapshot, flag casino/pharma/adult/CJK anchors or a year the site flipped to parked/spam. Downrank anything with a spam interlude.
 
 ### Phase 4 — Ranked report
-
-Rank by: (1) real-history depth (years, capture count, site type — ecommerce/
-forum/association usually out-link small brochure sites), (2) name quality
-(no hyphens > hyphens; shorter > longer; .com > rest), (3) verified metrics
-where available, (4) niche/geo match to the user's intent.
-
-Structure the report:
+Rank by: history depth (years, capture count, site type) → name quality (no-hyphen > hyphen, shorter, .com) → verified metrics → niche/geo match. Structure:
 1. **Top 5 picks** with reasoning
-2. **All available-to-register** (~$10 path) with one-line histories
-3. **Marketplace listings** with metrics and prices — flag suspicious profiles
-   (high RD + low DA + spam score ≥6 = likely spammed; say so)
-4. **Watchlist**: registered-but-dead domains worth backordering (DropCatch/
-   SnapNames/GoDaddy, ~$59-79)
-5. **How to buy** per path + **redevelop-and-rank playbook**
+2. **Available-to-register** (~$10) with one-line histories + drop-dates
+3. **Marketplace listings** with metrics/prices — flag suspicious profiles (high RD + low DA + spam ≥6 = likely spammed)
+4. **Watchlist**: registered-but-dead to backorder (DropCatch/SnapNames/GoDaddy)
+5. **How to buy** + **redevelop-and-rank playbook**
 
-### Always include these caveats
-
-- Backlink counts are only as good as the source; tell the user to verify the
-  link profile in Ahrefs/Majestic/Moz free checkers before paying >$50
-  (anchor-text poison: casino/pharma/CJK spam anchors).
+### Always caveat
+- Verify backlink profile in Ahrefs/Majestic/Moz before paying >$50 (anchor-text poison).
 - Availability changes daily — drop-catchers are fast; re-verify at purchase.
-- Google's expired-domain-abuse policy: rebuilding in the SAME niche with real
-  content is the legitimate use; unrelated-content flips get punished. Advise
-  restoring old URL paths (from Wayback) so legacy backlinks resolve.
-- Aged domains buy faster indexing and crawl trust, not instant rankings.
+- Google's expired-domain-abuse policy: rebuild in the SAME niche with real content (legit); unrelated flips get punished. Restore old URL paths (from Wayback) so legacy backlinks resolve. Aged domains buy faster indexing, not instant rankings.
+
+### Optional — continuous monitoring
+For watchlist domains, use the `schedule` or `loop` skill to re-run `check_domains.sh` on a cadence and alert when a domain hits pendingDelete / becomes AVAILABLE.
+
+---
+
+## SECURITY MODE (ASM / domain threat-intel)
+
+Run `scripts/security_scan.sh <domain>` and interpret with `SECURITY.md`. Six keyless checks: subdomain-takeover (HTTP-fingerprint confirmed), DNS footprint, SubdoMailing/SPF-include re-registration risk, email-auth posture, Certificate Transparency history (crt.sh), Spamhaus DBL reputation. Maps to MITRE ATT&CK T1583.001 and OWASP. Extendable (documented, need keys): dnstwist typosquats, Google Safe Browsing / VirusTotal / urlscan.io, abuse.ch C2 feeds, passive DNS, scheduled blue-team monitoring.
+
+Defensive/authorized use only — flags takeover *candidates*, never claims them.
