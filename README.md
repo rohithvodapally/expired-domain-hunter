@@ -35,11 +35,11 @@ captures since 2002.
 
 ```bash
 # personal (all projects)
-git clone https://github.com/YOUR_USERNAME/expired-domain-hunter.git \
+git clone https://github.com/rohithvodapally/expired-domain-hunter.git \
   ~/.claude/skills/expired-domain-hunter
 
 # or per-project
-git clone https://github.com/YOUR_USERNAME/expired-domain-hunter.git \
+git clone https://github.com/rohithvodapally/expired-domain-hunter.git \
   .claude/skills/expired-domain-hunter
 ```
 
